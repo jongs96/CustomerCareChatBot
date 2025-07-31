@@ -19,7 +19,7 @@ os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
 # FAQ 데이터 로드 및 RAG 설정
 def setup_rag():
     # faq.txt 파일을 로드
-    loader = TextLoader("faq.txt")
+    loader = TextLoader("C:/Users/flux310/Desktop/Js/CustomerCareBot/faq.txt", encoding='utf-8')
     documents = loader.load()
     # 텍스트를 작은 조각으로 나누기 (검색 효율성 향상)
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
