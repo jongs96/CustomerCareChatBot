@@ -13,7 +13,7 @@ def simple_chatbot(user_input):
     for key, response in responses.items():
         if key in user_input:
             return response
-    return "죄송합니다. 다시 말씀해 주세요."
+    return "죄송합니다. 질문이 불분명합니다. 불만 사항을 구체적으로 말씀해 주시면 더 빠르게 도와드리겠습니다!"
 
 # 챗봇 실행
 print("고객 불만 처리 챗봇입니다. 불만 사항을 말씀해 주세요 (종료하려면 '종료' 입력):")
