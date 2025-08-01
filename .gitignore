@@ -1,3 +1,4 @@
 .env
 .ipynb
 simple_chatbot.py
+faiss_index_*/
