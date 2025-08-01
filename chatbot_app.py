@@ -1,98 +1,153 @@
-import streamlit as st # Streamlit: 웹 UI를 만드는 라이브러리
-from dotenv import load_dotenv # .env 파일에서 API 키 로드
-import os
-import pickle  # FAISS 인덱스 저장용
-from pathlib import Path #상대경로 처리
+# chatbot_app.py
+"""
+정책문서 기반 고객 불만 자동 분류 & 대응 챗봇
 
-# LangChain 관련 모듈: LLM, 텍스트 분할, 벡터 저장소, 문서 로더
+• policy_docs/ 폴더의 .txt/.pdf 문서를 읽어
+  변경 감지 시마다 FAISS 인덱스 디렉터리 생성/로드
+• LangChain API로 RAG 체인 구성
+• st.chat_input / st.chat_message 로 카톡·GPT 스타일 UI
+• 메시지 지연 없이 즉시 표시
+"""
+
+# 0️⃣ 개발자 전용 설정 (이용자는 UI에서 변경 불가)
+TEMPERATURE   = 0.3   # 응답의 창의성 정도 (0.0 – 1.0)
+N_CANDIDATES  = 3     # 한번에 생성할 답변 수(LLM 초기화 시 반영)
+
+import streamlit as st
+from dotenv import load_dotenv
+from pathlib import Path
+import hashlib
+
+# LangChain / FAISS
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain.document_loaders import TextLoader
+try:
+    from langchain.document_loaders import PyPDFLoader
+except ImportError:
+    PyPDFLoader = None
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import TextLoader
-from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
 
-# .env 파일 로드/ 환경변수를 로드
-load_dotenv()
-# 캐시 리소스로 등록하여 1회만 실행하게 구성.
+# 1️⃣ 환경 변수 로드
+load_dotenv()  # .env에 OPENAI_API_KEY 필수
+
+# 2️⃣ Streamlit 페이지 설정
+st.set_page_config(
+    page_title="정책문서 기반 고객 불만 챗봇",
+    layout="wide",
+)
+st.title("💬 정책문서 기반 고객 불만 챗봇")
+st.markdown("`policy_docs/` 폴더 안의 .txt/.pdf 문서를 기준으로 자동 응답합니다.")
+st.markdown("---")
+
+# 3️⃣ 사이드바 안내
+with st.sidebar:
+    st.header("⚙️ 사용법")
+    st.markdown(
+        "- `policy_docs/` 폴더에 `.txt` 또는 `.pdf` 파일을 넣으세요.\n"
+        "- PDF 지원: `pip install pypdf` → PyPDFLoader 자동 활성화\n"
+        "- `.env` 파일에 `OPENAI_API_KEY`를 설정하세요.\n"
+        "- 문서 변경 후 새로고침하면 인덱스를 갱신합니다.\n"
+        "- 2회차 실행부터는 즉시 로드됩니다."
+    )
+
+# 4️⃣ 문서 변경 감지 해시 생성
+def get_docs_hash() -> str:
+    """
+    policy_docs/ 내 파일명+수정시각 리스트로 MD5 해시 생성.
+    변경 시마다 해시가 달라져 저장 디렉터리가 분기됩니다.
+    """
+    docs_dir = Path(__file__).parent / "policy_docs"
+    h = hashlib.md5()
+    for f in sorted(docs_dir.glob("*")):
+        h.update(f.name.encode("utf-8"))
+        h.update(str(f.stat().st_mtime).encode("utf-8"))
+    return h.hexdigest()
+
+# 5️⃣ FAISS 인덱스 생성/로드 (디렉터리 기반)
 @st.cache_resource
+def get_vectorstore(docs_hash: str):
+    """
+    • 인덱스 디렉터리: faiss_index_{docs_hash}
+    • 디렉터리 존재 시 FAISS.load_local(..., allow_dangerous_deserialization=True) 로드
+    • 없으면 문서 로드→임베딩→FAISS.from_documents→save_local
+    """
+    base = Path(__file__).parent
+    docs_dir = base / "policy_docs"
+    index_dir = base / f"faiss_index_{docs_hash}"
 
-# FAQ 데이터 로드 및 RAG 설정
-def setup_rag():
-    # FAISS 인덱스 파일 경로
-    faiss_path = Path(__file__).parent / "faiss_index.pkl"
-    # 텍스트를 벡터로 변환 (=텍스트를 숫자 리스트로 바꿈), OpenAI 임베딩 사용
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-    # FAISS 인덱스가 이미 존재하면 로드
-    if faiss_path.exists():
-        with open(faiss_path, "rb") as f:
-            vectorstore = pickle.load(f)
-    else:
-        # faq.txt 파일을 절대 경로로 로드, UTF-8 인코딩 명시
-        loader = TextLoader(Path(__file__).parent / "faq.txt", encoding='utf-8')
-        docs = loader.load()
-        # 텍스트를 작은 조각으로 나누기 (검색 효율성 향상, chunk_size 축소)
-        splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        chunks = splitter.split_documents(docs)
-        # FAISS로 벡터 저장소 생성 (빠른 검색 가능)
-        vectorstore = FAISS.from_documents(chunks, embeddings)
-        # FAISS 인덱스 저장
-        with open(faiss_path, "wb") as f:
-            pickle.dump(vectorstore, f)
+    # 1) 기존 인덱스 디렉터리 로드 (pickle 경고 회피)
+    if index_dir.exists():
+        return FAISS.load_local(
+            str(index_dir),
+            embeddings,
+            allow_dangerous_deserialization=True  # ⚠️ 신뢰된 로컬 데이터이므로 허용
+        )
 
-    # Open AI LLM 설정 (GPT-4o-mini 사용, temperature=0은 정확한 답변 선호)
-    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
-    # 대화 메모리 설정
+    # 2) 새 인덱스 생성
+    raw_docs = []
+    for f in docs_dir.glob("*"):
+        if f.suffix.lower() == ".pdf":
+            if PyPDFLoader:
+                loader = PyPDFLoader(str(f))
+            else:
+                st.warning(f"PDF 무시(PyPDFLoader 미설치): {f.name}")
+                continue
+        else:
+            loader = TextLoader(str(f), encoding="utf-8")
+        raw_docs.extend(loader.load())
+
+    # 문서 분할 → 임베딩 → FAISS 생성
+    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.split_documents(raw_docs)
+    vs = FAISS.from_documents(chunks, embeddings)
+
+    # 디렉터리로 저장
+    vs.save_local(str(index_dir))
+    return vs
+
+# 6️⃣ RAG 체인 초기화 (LangChain API)
+@st.cache_resource
+def init_chain(docs_hash: str):
+    vs = get_vectorstore(docs_hash)
+
+    # LLM 초기화 시 온도 및 후보 수 고정
+    llm = ChatOpenAI(
+        model_name="gpt-4o-mini",
+        temperature=TEMPERATURE,
+        model_kwargs={"n": N_CANDIDATES}
+    )
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    # ConversationalRetrievalChain: FAQ 검색 + LLM + 대화 메모리
+
     return ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vectorstore.as_retriever(search_kwargs={"k": 3}),
+        retriever=vs.as_retriever(search_kwargs={"k": 3}),
         memory=memory
     )
-#?
-# 마크다운으로 답변 포맷팅
-def format_response(response):
-    # FAQ 답변을 마크다운으로 구조화
-    formatted = f"**답변**\n\n{response}\n\n*자세한 문의는 고객 지원팀(1234-5678)으로 연락 주세요.*"
-    return formatted
-#?
-# Streamlit UI 설정
-st.set_page_config(page_title="고객 불만 처리 챗봇", layout="centered")
-st.title("고객 불만 처리 챗봇")
 
-# 최초 실행 시 setup_rag()를 한 번만 호출, 스피너 표시
-if "qa_chain" not in st.session_state:
-    with st.spinner("⏳ 초기 설정 중… 잠시만 기다려 주세요"):
-        st.session_state.qa_chain = setup_rag()
+# 7️⃣ 해시 계산 & RAG 체인 로드
+docs_hash = get_docs_hash()
+with st.spinner("⏳ 인덱스 생성/로드 및 RAG 초기화 중… 잠시만 기다려주세요"):
+    qa_chain = init_chain(docs_hash)
 
-# 채팅 히스토리 초기화
+# 8️⃣ 대화 기록 초기화
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    st.session_state.chat_history = []  # List of (speaker, message)
 
-# 입력 폼(엔터 시 입력창 초기화)
-with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input(
-        "질문을 입력하세요.",
-        placeholder="예: 환불 정책이 궁금해요.",
-        key="user_input"
-    )
-    submit_button = st.form_submit_button(label="전송")
+# 9️⃣ 사용자 입력 처리
+user_input = st.chat_input("질문을 입력하세요…")
+if user_input:
+    st.session_state.chat_history.append(("user", user_input))
+    resp = qa_chain({"question": user_input})
+    st.session_state.chat_history.append(("assistant", resp["answer"]))
 
-# 응답 출력
-if submit_button and user_input:
-    # RAG 체인으로 FAQ 기반 답변 생성 ( 대화 기록 포함 )
-    response = st.session_state.qa_chain({"question": user_input})
-    answer = response["answer"]
-    # 대화 기록에 추가
-    st.session_state.chat_history.append(("사용자", user_input))
-    st.session_state.chat_history.append(("챗봇", response["answer"]))
-    # 페이지 새로고침으로 대화 즉시 표시
-
-# 대화 기록 표시
-for speaker, text in st.session_state.chat_history:
-    if speaker == "사용자":
-        st.markdown(f"**사용자:** {text}")
+# 🔟 대화 렌더링 (즉시 표시)
+for speaker, msg in st.session_state.chat_history:
+    if speaker == "user":
+        st.chat_message("user").write(msg)
     else:
-        st.markdown(f"**챗봇:** {text}")
+        st.chat_message("assistant").write(msg)
