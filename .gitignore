@@ -1,4 +1,9 @@
-.env
-.ipynb
-simple_chatbot.py
+# Jupyter 노트북
+*.ipynb
+
+# FAISS 인덱스 (디렉터리 + pickle)
 faiss_index_*/
+*.pkl
+
+.env
+simple_chatbot.py
