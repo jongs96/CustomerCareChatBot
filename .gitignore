@@ -6,4 +6,8 @@ faiss_index_*/
 *.pkl
 
 .env
+<<<<<<< HEAD
 simple_chatbot.py
+=======
+simple_chatbot.py
+>>>>>>> 542d58aed8ef78009ec90361806e4921e12c8a0c
