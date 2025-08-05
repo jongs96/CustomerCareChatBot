@@ -1,27 +1,43 @@
-# 🧿 정책 문서 기반 고객 불만 자동 분류 & 대응 챗봇
+# 정책 문서 기반 고객 불만 자동 분류 & 대응 챗봇
+## - (NCSOFT 운영약관 적용)
+
+![앱 스크린샷](./screenshot.png)
+
+> 정책 문서 기반으로 고객 문의에 답변해 드리는 RAG(Chat + FAISS) 챗봇입니다. NCSOFT 공식 운영약관 문서를 넣어 프로젝트를 진행했습니다. 정책 문서파일과 헤더 텍스트의 내용을 수정하면 다양하게 사용 가능합니다.
+
+## 서비스 개요
+
+### 1. NCSOFT 운영약관 기반 자동 상담  
+NCSOFT 공식 운영약관(.txt/.pdf)을 벡터화하여 RAG(Retrieval-Augmented Generation) 방식으로 고객 문의에 정확한 답변을 제공합니다.  
+- 사용자가 운영약관 관련 질문을 입력하면, 챗봇이 정책 문서를 검색하여 적절한 답변을 생성  
+- 약관에 명시된 내용만 바탕으로 답변하며, 불확실한 정보는 “정중한 안내”로 처리  
+
+### 2. Streamlit UI  
+카카오톡·GPT 스타일의 채팅 인터페이스 구현 
+- 실시간 대화형 메시지 표시  
+- 긴 대화 시 스크롤 지원  
+- 사용자/챗봇 메시지 별도 스타일 적용  
 
 ---
 
-## 🎯 주제  
-정책 문서를 기반으로 Retrieval-Augmented Generation(RAG)을 활용해 고객 불만을 자동으로 분류하고, 시나리오 기반 맞춤 응답을 제공하는 챗봇 시스템
+## 주요 기능
+
+| 기능                        | 설명                                                         |
+|----------------------------|--------------------------------------------------------------|
+| 문서 기반 Q&A              | `policy_docs/` 폴더 내 운영약관(.txt, .pdf) 문서 검색 및 응답   |
+| RAG 체인                   | FAISS 인덱스 + OpenAI Embeddings + ChatOpenAI + Memory 활용 |
+| 시스템 프롬프트            | “약관에 명시된 내용만 답변” 등 챗봇 동작 지침 임베딩           |
+| 캐시 및 인덱스 자동 갱신   | 문서 변경 시 해시 기반 인덱스 자동 재생성                    |
+| 개발자 전용 설정           | 코드 상단 TEMPERATURE, N_CANDIDATES, RETRIEVE_K 등 변수 조정  |
 
 ---
 
-## 🎉 서비스 내용  
-- **문서 기반 Q&A**: 사내 정책 문서(FAQ, 가이드라인 등)를 벡터화하여 RAG 엔진으로 정확한 답변 제공  
-- **불만 유형 자동 분류**: 환불, 배송 지연, 서비스 불만, 기타 항목으로 자동 태깅  
-- **시나리오 분기 응답**: 분류된 유형별로 미리 설계한 응답 플로우에 따라 대화 분기  
-- **Streamlit UI**: 카카오톡·GPT 스타일의 직관적인 웹 인터페이스 지원  
-- **인덱스 자동 갱신**: `policy_docs/` 폴더 내용 변경 시마다 FAISS 인덱스 자동 재생성
+## 프로젝트 수행 기간  
+2025.08.01 ~ 2025.08.10
 
 ---
 
-## 🗓️ 프로젝트 수행 기간  
-2025.07.28 ~ 2025.08.08
-
----
-
-## 📚 Tech Stack  
+## Tech Stack  
 
 ![Python](https://img.shields.io/badge/python-3776AB?style=for-the-badge&logo=python&logoColor=white)  
 ![Streamlit](https://img.shields.io/badge/streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)  
@@ -32,7 +48,7 @@
 
 ---
 
-## 🛠 Tools  
+## Tools  
 
 ![GitHub](https://img.shields.io/badge/github-181717?style=for-the-badge&logo=github&logoColor=white)  
 ![VS Code](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white)  
@@ -41,6 +57,46 @@
 
 ---
 
-## 🔗 링크  
-- **코드 리포지토리**: https://github.com/jongs96/CustomerCareChatBot
+## 실행 및 설치
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/yourusername/ncsoft-terms-chatbot.git
+cd ncsoft-terms-chatbot
+
+# 2. 가상환경 생성 & 활성화 (Anaconda 예시)
+conda create -n chatbot_env python=3.10 -y
+conda activate chatbot_env
+
+# 3. 의존성 설치
+pip install -r requirements.txt
+pip install pypdf            # PDF 로더(옵션)
+pip install tiktoken         # OpenAI Embeddings 전처리
+
+# 4. .env 파일 생성
+echo "OPENAI_API_KEY=your_api_key" > .env
+
+# 5. 앱 실행
+streamlit run chatbot_app.py
+```
 ---
+
+## 프로젝트 구조
+
+```bash
+.
+├── chatbot_app.py           # Streamlit 웹앱 메인 스크립트
+├── policy_docs/             # 운영약관(.txt, .pdf) 저장 폴더
+├── faiss_index_<hash>/      # 자동 생성되는 FAISS 인덱스 디렉터리
+├── .env                     # 환경 변수(API 키) 설정 파일
+├── requirements.txt         # Python 패키지 의존성 목록
+├── README.md                # 프로젝트 설명 문서
+└── 화면.png                 # UI 스크린샷 예시 이미지
+```
+---
+
+## 유의사항
+policy_docs/ 폴더에 최신 운영약관 문서를 반드시 추가 후 실행하세요.
+
+FAISS 인덱스는 폴더 해시가 변경될 때마다 자동으로 재생성되므로,
+인덱스 디렉터리가 누적되는 경우 수동으로 삭제할 수 있습니다.
