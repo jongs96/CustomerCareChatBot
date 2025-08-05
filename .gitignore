@@ -1,3 +1,4 @@
 .env
 .ipynb
+.pkl
 simple_chatbot.py
