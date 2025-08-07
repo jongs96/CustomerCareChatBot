@@ -38,26 +38,6 @@ NCSOFT 공식 운영약관(.txt/.pdf)을 벡터화하여 RAG(Retrieval-Augmented
 
 ---
 
-## Tech Stack  
-
-![Python](https://img.shields.io/badge/python-3776AB?style=for-the-badge&logo=python&logoColor=white)  
-![Streamlit](https://img.shields.io/badge/streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)  
-![LangChain](https://img.shields.io/badge/langchain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)  
-![FAISS](https://img.shields.io/badge/FAISS-000000?style=for-the-badge&logo=faiss&logoColor=white)  
-![OpenAI API](https://img.shields.io/badge/OpenAI%20API-412991?style=for-the-badge&logo=openai&logoColor=white)  
-![dotenv](https://img.shields.io/badge/dotenv-212121?style=for-the-badge&logo=dotenv&logoColor=white)
-
----
-
-## Tools  
-
-![GitHub](https://img.shields.io/badge/github-181717?style=for-the-badge&logo=github&logoColor=white)  
-![VS Code](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white)  
-![Anaconda](https://img.shields.io/badge/anaconda-44A833?style=for-the-badge&logo=anaconda&logoColor=white)  
-![Git](https://img.shields.io/badge/git-F05032?style=for-the-badge&logo=git&logoColor=white)
-
----
-
 ## 실행 및 설치
 
 ```bash
@@ -71,13 +51,8 @@ conda activate chatbot_env
 
 # 3. 의존성 설치
 pip install -r requirements.txt
-pip install pypdf            # PDF 로더(옵션)
-pip install tiktoken         # OpenAI Embeddings 전처리
 
-# 4. .env 파일 생성
-echo "OPENAI_API_KEY=your_api_key" > .env
-
-# 5. 앱 실행
+# 4. 앱 실행
 streamlit run chatbot_app.py
 ```
 ---
@@ -97,6 +72,9 @@ streamlit run chatbot_app.py
 ---
 
 ## 유의사항
+OPENAI API KEY가 없는 경우 발급 후 .env 파일 생성해야 작동됩니다.
+cmd 창에서 바로 생성 [echo "OPENAI_API_KEY=your_api_key" > .env]
+
 policy_docs/ 폴더에 최신 운영약관 문서를 반드시 추가 후 실행하세요.
 
 FAISS 인덱스는 폴더 해시가 변경될 때마다 자동으로 재생성되므로,
